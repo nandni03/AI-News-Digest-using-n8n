@@ -1,0 +1,185 @@
+{
+  "name": "AI news Digest",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [0, 80],
+      "id": "7b35953b-c6fa-44a4-a372-fb3224749523",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [-16, -160],
+      "id": "493c7b9a-dabf-4560-beb9-dea79919ee28",
+      "name": "Telegram Trigger",
+      "webhookId": "YOUR_WEBHOOK_ID",
+      "credentials": {
+        "telegramApi": {
+          "id": "YOUR_TELEGRAM_CREDENTIAL_ID",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://gnews.io/api/v4/search?q=artificial%20intelligence&lang=en&max=5&apikey=YOUR_GNEWS_API_KEY",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [224, 80],
+      "id": "c434b7bd-e7a5-400f-9442-6eb927f6906e",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "return items[0].json.articles.map(article => {\n  return {\n    json: {\n      title: article.title || \"No title\",\n      url: article.url || \"No URL\",      inputs:`Title:${article.title}\\nDescription:${article.description}\\nURL: ${article.url}`\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [448, 80],
+      "id": "56d2b9d6-4944-4d22-9287-25e68b707cd4",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://router.huggingface.co/hf-inference/models/facebook/bart-large-cnn",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_HUGGINGFACE_API_TOKEN"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"inputs\": \"Title: {{$json['title']}} \\nDescription: {{$json['description']}} \\nURL: {{$json['url']}}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [896, 32],
+      "id": "2eab6565-3fff-47c9-b1e1-a3312c8645e0",
+      "name": "HTTP Request1",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "let message = \"🧠 *Daily AI News Digest*\\n\\n\";\n\nitems.forEach((item, index) => {\n  const summary = item.json.summary_text || \"No summary\";\n  const title = item.json.title || \"No title\";\n  const url = item.json.url || \"No URL\";\n\n  message += `*${index + 1}. ${title}*\\n`;\n  message += `${summary}\\n`;\n  message += `Read more: ${url}\\n\\n`;\n});\n\nreturn [{ json: { message } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [896, -160],
+      "id": "78b2fe20-1530-4a4a-9fd9-5cf0e117709e",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "={{ $json.message }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1120, -160],
+      "id": "86c8980d-45e3-4921-a525-dd183100419c",
+      "name": "Send a text message",
+      "webhookId": "YOUR_WEBHOOK_ID",
+      "credentials": {
+        "telegramApi": {
+          "id": "YOUR_TELEGRAM_CREDENTIAL_ID",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [672, -48],
+      "id": "81bfbfc7-939d-4930-abc2-0540ac34a272",
+      "name": "Merge"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [{ "node": "HTTP Request", "type": "main", "index": 0 }]
+      ]
+    },
+    "Telegram Trigger": {
+      "main": [
+        [{ "node": "HTTP Request", "type": "main", "index": 0 }]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [{ "node": "Code in JavaScript", "type": "main", "index": 0 }]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          { "node": "Merge", "type": "main", "index": 0 },
+          { "node": "HTTP Request1", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [{ "node": "Merge", "type": "main", "index": 1 }]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          { "node": "HTTP Request1", "type": "main", "index": 0 },
+          { "node": "Code in JavaScript1", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [{ "node": "Send a text message", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
